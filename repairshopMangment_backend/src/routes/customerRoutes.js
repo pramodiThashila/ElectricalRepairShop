@@ -20,13 +20,13 @@ router.post(
             .notEmpty().withMessage("Email is mandatory")
             .isEmail().withMessage("Invalid email format")
             .isLength({ max: 100 }).withMessage("Email should not exceed 100 characters"),
-        body("customerType")
+        body("type")
             .notEmpty().withMessage("Customer type is mandatory")
             .isIn(["Regular", "Normal"]).withMessage("Customer type should be either 'Regular' or 'Normal'"),
-        body("phoneNumbers")
+        body("phone_number")
             .isArray().withMessage("Phone numbers should be an array")
-            .custom((phoneNumbers) => {
-                for (let phone of phoneNumbers) {
+            .custom((phone_number) => {
+                for (let phone of phone_number) {
                     if (!/^07\d{8}$/.test(phone)) {
                         throw new Error("Telephone number should contain 10 digits and start with 07");
                     }
@@ -41,7 +41,7 @@ router.post(
         }
 
         try {
-            const { firstName, lastName, email, customerType, phoneNumbers } = req.body;
+            const { firstName, lastName, email, type, phone_number } = req.body;
 
             // Check if email exists
             const [existingUser] = await db.query(
@@ -50,7 +50,7 @@ router.post(
             );
             if (existingUser.length > 0) return res.status(400).json({ message: "Email already exists" });
 
-            for (let phone of phoneNumbers) {
+            for (let phone of phone_number) {
                 const [existingPhone] = await db.query(
                     "SELECT * FROM customer_telephones WHERE phone_number = ?",
                     [phone]
@@ -63,14 +63,14 @@ router.post(
             // Insert new customer
             const [result] = await db.query(
                 "INSERT INTO customers (firstName, lastName, email, type) VALUES (?, ?, ?, ?)",
-                [firstName, lastName, email, customerType]
+                [firstName, lastName, email, type]
             );
 
             const customerId = result.insertId;
 
             // Insert multiple phone numbers
-            if (phoneNumbers.length > 0) {
-                const phoneValues = phoneNumbers.map(phone => [customerId, phone]);
+            if (phone_number.length > 0) {
+                const phoneValues = phone_number.map(phone => [customerId, phone]);
                 await db.query("INSERT INTO customer_telephones (customer_id, phone_number) VALUES ?", [phoneValues]);
             }
 
@@ -88,12 +88,12 @@ router.put(
         body("firstName").optional().isLength({ max: 10 }).withMessage("First name should not exceed 10 characters"),
         body("lastName").optional().isLength({ max: 20 }).withMessage("Last name should not exceed 20 characters"),
         body("email").optional().isEmail().withMessage("Invalid email format"),
-        body("customerType").optional().isIn(["Regular", "Premium"]).withMessage("Customer type should be either 'Regular' or 'Premium'"),
-        body("phoneNumbers")
+        body("type").optional().isIn(["Regular", "Normal"]).withMessage("Customer type should be either 'Regular' or 'Normal'"),
+        body("phone_number")
             .optional()
             .isArray().withMessage("Phone numbers should be an array")
-            .custom((phoneNumbers) => {
-                for (let phone of phoneNumbers) {
+            .custom((phone_number) => {
+                for (let phone of phone_number) {
                     if (!/^07\d{8}$/.test(phone)) {
                         throw new Error("Telephone number should contain 10 digits and start with 07");
                     }
@@ -103,7 +103,7 @@ router.put(
     ],
     async (req, res) => {
         const { id } = req.params;
-        const { firstName, lastName, email, customerType, phoneNumbers } = req.body;
+        const { firstName, lastName, email, type, phone_number} = req.body;
 
         try {
             // Check if email exists for other customers
@@ -116,13 +116,13 @@ router.put(
             // Update customer
             await db.query(
                 "UPDATE customers SET firstName = ?, lastName = ?, email = ?,  type = ? WHERE customer_id = ?",
-                [firstName, lastName, email, customerType, id]
+                [firstName, lastName, email, type, id]
             );
 
             // Update multiple phone numbers
             await db.query("DELETE FROM customer_telephones WHERE customer_id = ?", [id]);
-            if (phoneNumbers && phoneNumbers.length > 0) {
-                const phoneValues = phoneNumbers.map(phone => [id, phone]);
+            if (phone_number && phone_number.length > 0) {
+                const phoneValues = phone_number.map(phone => [id, phone]);
                 await db.query("INSERT INTO customer_telephones (customer_id, phone_number) VALUES ?", [phoneValues]);
             }
 
@@ -141,7 +141,7 @@ router.patch("/:id", async (req, res) => {
     let values = [];
 
     for (const key in updates) {
-        if (["firstName", "lastName", "email", "customerType"].includes(key)) {
+        if (["firstName", "lastName", "email", "type"].includes(key)) {
             updateFields.push(`${key} = ?`);
             values.push(updates[key]);
         }
@@ -178,12 +178,12 @@ router.get("/all", async (req, res) => {
     try {
         // Fetch all customers and their phone numbers
         const [customersData] = await db.query(
-            "SELECT c.*, GROUP_CONCAT(t.phone_number) AS phoneNumbers FROM customers c LEFT JOIN customer_telephones t ON c.customer_id = t.customer_id GROUP BY c.customer_id"
+            "SELECT c.*, GROUP_CONCAT(t.phone_number) AS phone_number FROM customers c LEFT JOIN customer_telephones t ON c.customer_id = t.customer_id GROUP BY c.customer_id"
         );
 
         // Format the phoneNumbers to an array
         const customers = customersData.map(customer => {
-            customer.phoneNumbers = customer.phoneNumbers ? customer.phoneNumbers.split(',') : [];
+            customer.phone_number = customer.phone_number ? customer.phone_number.split(',') : [];
             return customer;
         });
 
@@ -200,7 +200,7 @@ router.get("/:id", async (req, res) => {
     try {
         // Fetch customer details along with their phone numbers
         const [customerData] = await db.query(
-            "SELECT c.*, GROUP_CONCAT(t.phone_number) AS phoneNumbers FROM customers c LEFT JOIN customer_telephones t ON c.customer_id = t.customer_id WHERE c.customer_id = ? GROUP BY c.customer_id",
+            "SELECT c.*, GROUP_CONCAT(t.phone_number) AS phone_number FROM customers c LEFT JOIN customer_telephones t ON c.customer_id = t.customer_id WHERE c.customer_id = ? GROUP BY c.customer_id",
             [id]
         );
 
@@ -210,7 +210,7 @@ router.get("/:id", async (req, res) => {
 
         // Parse the phone numbers to an array
         const customer = customerData[0];
-        customer.phoneNumbers = customer.phoneNumbers ? customer.phoneNumbers.split(',') : [];
+        customer.phone_number = customer.phone_number ? customer.phone_number.split(',') : [];
 
         res.status(200).json(customer);
     } catch (error) {
@@ -220,12 +220,12 @@ router.get("/:id", async (req, res) => {
 
 
 // Get Customer by Phone Number
-router.get("/phone/:phoneNumber", async (req, res) => {
-    const { phoneNumber } = req.params;
+router.get("/phone/:phone_number", async (req, res) => {
+    const { phone_number } = req.params;
     try {
         const [customer] = await db.query(
             "SELECT c.* FROM customers c JOIN customer_telephones t ON c.customer_id = t.customer_id WHERE t.phone_number = ?",
-            [phoneNumber]
+            [phone_number]
         );
         if (customer.length === 0) {
             return res.status(404).json({ message: "Customer not found" });
