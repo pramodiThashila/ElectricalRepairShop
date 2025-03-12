@@ -29,18 +29,18 @@ const upload = multer({ storage });
 // Create Product
 router.post(
     "/add",
-    upload.single("productImage"), // Accepts a single file with the field name "productImage"
+    upload.single("product_image"), // Accepts a single file with the field name "productImage"
     [
-        body("productName")
+        body("product_name")
             .notEmpty().withMessage("Product name is required")
             .isLength({ max: 100 }).withMessage("Product name cannot exceed 100 characters"),
         body("model")
             .notEmpty().withMessage("Model is required")
             .isLength({ max: 50 }).withMessage("Model cannot exceed 50 characters"),
-        body("modelNo")
+        body("model_no")
             .notEmpty().withMessage("Model number is required")
             .isLength({ max: 30 }).withMessage("Model number cannot exceed 30 characters"),
-        body("productImage")
+        body("product_image")
             .optional().isURL().withMessage("Invalid URL for product image")
     ],
     async (req, res) => {
@@ -48,12 +48,12 @@ router.post(
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
         try {
-            const { productName, model, modelNo } = req.body;
-            const productImage = req.file ? `/uploads/${req.file.filename}` : null; // Store file path
+            const { product_name, model, model_no } = req.body;
+            const product_image = req.file ? `/uploads/${req.file.filename}` : null; // Store file path
 
             const [result] = await db.query(
                 "INSERT INTO products (product_name, model, model_no, product_image) VALUES (?, ?, ?, ?)",
-                [productName, model, modelNo, productImage]
+                [product_name, model, model_no, product_image]
             );
 
             res.status(201).json({ message: "Product added successfully!", productId: result.insertId });
@@ -88,25 +88,25 @@ router.get("/:id", async (req, res) => {
 // Update Product
 router.put(
     "/:id",
-    upload.single("productImage"), // Optional image update
+    upload.single("product_image"), // Optional image update
     [
-        body("productName").optional().isLength({ max: 100 }),
+        body("product_name").optional().isLength({ max: 100 }),
         body("model").optional().isLength({ max: 50 }),
         body("modelNo").optional().isAlphanumeric().isLength({ max: 30 }),
-        body("productImage").optional().isURL()
+        body("product_image").optional().isURL()
     ],
     async (req, res) => {
-        const { productName, model, modelNo } = req.body;
-        const productImage = req.file ? `/uploads/${req.file.filename}` : null; // Store file path if available
+        const { product_name, model, model_no } = req.body;
+        const product_image = req.file ? `/uploads/${req.file.filename}` : null; // Store file path if available
 
         try {
             let query = "UPDATE products SET ";
             const params = [];
 
-            if (productName) { query += "product_name = ?, "; params.push(productName); }
+            if (product_name) { query += "product_name = ?, "; params.push(product_name); }
             if (model) { query += "model = ?, "; params.push(model); }
-            if (modelNo) { query += "model_no = ?, "; params.push(modelNo); }
-            if (productImage) { query += "product_image = ?, "; params.push(productImage); }
+            if (model_no) { query += "model_no = ?, "; params.push(model_no); }
+            if (product_image) { query += "product_image = ?, "; params.push(product_image); }
 
             // Remove last comma
             query = query.slice(0, -2) + " WHERE product_id = ?";
